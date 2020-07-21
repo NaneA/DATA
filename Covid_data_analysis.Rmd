@@ -1,0 +1,216 @@
+---
+title: "Individual_projec for Data Science Summer 2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F)
+```
+
+## R Markdown
+
+
+```{r}
+covid = read.csv("covid.csv")
+
+#str(covid) 
+```
+```{r}
+#head(covid)
+```
+### Data is provided by InfoGears company.
+
+### About Data:
+Data is made from questionre of random people from USA. Overall there are 33 variables and 30088 participants.
+
+### Description of work done on the data and the expectations and the results:
+
+###1.
+Check how Covid influenced people's stress level and whether if can increase depending on number of people one is living with. This observation was inluenced by the fact that divorse rates increased during Covid-19.
+Results(more below) : As observed the more are people one is staying with the more stressed he/she gets.
+
+###2.
+Check which gender wears more masks by percentage. Based on that results check which gender caught virus more and whether masks were effective or not.
+Results(more below): Women wear masks more than men however unexpectedly women got infected more than men. Therefore, the masks weren't that effective.
+
+
+### 3.
+Checking whether people with health issues are stressed about the virus, are they wearing masks or not.
+Results(more below): As observed people with ilnesses are more stressed and wear maks more than people without ilnesses. And as expected people with illnesses caught virus less than people having them.
+### 4.
+Check which sympoms are most common for people who tested positive for Covid-19 and find out which symptoms can be indicator that one has caught the virus.
+Results:the most common symptoms are lossofSmell and Sore Troat, also Temperature and Cough are common but less than two previosly mentioned ones. Therefore, if one has loss of Smell of Sore throat should undoubtedely visit a doctor.
+
+### First finding
+
+1. Let's start with some data cleaning and preparation
+
+I won't be using columns guid and userAgent => I will remove them
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(stringr)
+```
+```{r}
+covid = subset(covid, select = -c(guid, userAgent))
+#head(covid)
+
+```
+
+
+
+Before ploting graphs I want to be sure that there are no outliers that can make my data biased. So I will check for outliers. Also as observed there was class imbalance problem in my data thus I took equal amount from each class for having fair results.
+
+
+We can check for outliers in two ways in first way we will count numbers of each household in a table and secnd  one using boxplot
+
+```{r}
+
+ 
+covid %>% group_by(householdHeadcount) %>%summarise(Count =n()) %>% arrange(desc(Count))
+
+```
+```{r, fig.height=4, fig.width=4}
+ggplot(covid, aes(y = householdHeadcount))+geom_boxplot()
+```
+So it become obvious that there are a lot of outliers in our data from which we need to get rid of. I think some users entered random numbers. There was also class imbalance problem so in following step I chose equal number of classes from householdHeadcount
+```{r}
+
+
+covid1 = covid[covid$householdHeadcount<7 &covid$householdHeadcount >= 1 ,]
+unique(covid1$householdHeadcount) # checking
+covid1$householdHeadcount = floor(covid1$householdHeadcount)
+
+library(tidyverse)
+a = covid1 %>% 
+   group_by(householdHeadcount) %>% 
+   slice(tail(row_number(), 600))
+
+a %>% group_by(householdHeadcount) %>%summarise(Count =n()) %>% arrange(desc(Count))
+
+
+```
+ let's see what can cause mental healt impact. There can be two options whether people feel stressed when there are few people at home or stressed that they are locked with many household members.
+As we see from the graph number of household members
+
+```{r}
+
+ggplot(covid, aes(x=mentalHealthImpact, y = householdHeadcount))+ geom_boxplot()+labs(title = " Mental health impacted by household members without data cleaning",
+x = "Mental health impact",
+y = "Household member")+ theme(axis.text.x = element_text(angle=90))+coord_cartesian(ylim = c(0,10))
+```
+```{r}
+
+
+unique(covid$mentalHealthImpact)
+
+ggplot(a, aes(x= factor(mentalHealthImpact), y = householdHeadcount))+ geom_boxplot()+labs(title = "Mental health impacted by household members with data cleaning",
+x = "Mental health impact",
+y = "Household member")+ theme(axis.text.x = element_text(angle=90))
+
+```
+### Result: the larger is number of household members the stressed people feel during the lockdown. Recommendation: sometimes leave the house :))
+
+
+
+# Second Observation
+
+
+```{r}
+
+covid %>% filter(faceCovering %in% c("Always","Sometimes","Never" )) %>%filter(gender %in% c("female", "male")) %>% group_by(faceCovering, gender) %>% summarise(count = n()) %>%
+  ggplot(aes(x=gender, y=count, fill =faceCovering))+geom_bar(stat="identity") + facet_grid(.~faceCovering)+labs(title = "Women wearing masks vs Men wearing masks with count")
+```
+
+
+```{r}
+covid %>% filter(faceCovering %in% c("Always","Sometimes","Never" )) %>%filter(gender %in% c("female", "male")) %>% group_by(faceCovering, gender) %>% summarise(ptg = n()) %>% mutate(ptg = prop.table(ptg)*100)%>%
+  ggplot(aes(x=gender, y=ptg, fill =faceCovering))+geom_bar(stat="identity") + facet_grid(.~faceCovering)+labs(title = "Women wearing masks vs Men wearing masks with percentage")
+
+```
+### As we see women were more responsible and wore their masks now let's see whether masks helped hell women to get infected. I think yes, but let's check.
+```{r}
+covid %>% filter(virusTest %in% c("negative","positive")) %>%filter(gender %in% c("female", "male")) %>% group_by(virusTest, gender) %>% summarise(ptg = n()) %>% mutate(ptg = prop.table(ptg)*100)%>%
+  ggplot(aes(x=gender, y=ptg, fill =virusTest))+geom_bar(stat="identity") + facet_grid(.~virusTest)+ labs(title = "Percentage of convid tests by gender")
+
+
+```
+
+### As we masks weren't that effective as there are more percentage of  infected women than men!!
+
+# 3rd observation
+
+Now let's see how people with Chronic illnesses feel about covid
+1. as we see below people with chronic ilnesses are more than concerned and are stressed for their lives
+```{r}
+covid %>% filter(healthIssues %in% "chronicIssues") %>% group_by(mentalHealthImpact) %>% summarise(Count=n()) 
+  
+
+```
+Below we see that people have no issues are also concerned but many said that virus didn't give them any kind of stress while there were very few people with ilnesses who chose no impact => people with illnesses are really scared 
+```{r}
+covid %>% filter(healthIssues %in% "noIssues") %>% group_by(mentalHealthImpact) %>% summarise(Count=n()) 
+  
+
+```
+Now let's see if people with illnesses who are scared wear masks and if they do are they effective
+
+```{r}
+covid %>% filter(healthIssues %in% c("chronicIssues","noIssues")) %>% filter(faceCovering %in% c("Always",  "Sometimes", "Never" )) %>% group_by(healthIssues , faceCovering) %>% summarise(ptg = n()) %>% mutate(ptg = prop.table(ptg)*100)%>%
+  ggplot(aes(x= healthIssues, y=ptg, fill =faceCovering))+geom_bar(stat="identity") + facet_grid(.~faceCovering)+coord_cartesian(ylim = c(0,80) )+ labs(title = "Observing who is more responible while wearing masks")
+
+
+```
+
+As expected people with illnesses wear masks more often that people with no issues
+
+```{r}
+
+covid %>% filter(healthIssues %in% c("chronicIssues","noIssues")) %>% filter(virusTest %in% c("negative","positive")) %>% group_by( healthIssues, virusTest) %>% summarise(ptg = n()) %>% mutate(ptg = prop.table(ptg)*100)
+
+```
+ALthough people don't get virus often people with no issues caught them more => masks were effective (the pecentage is very small but anyways it's a result)
+
+### Result: Wearing masks is effective so people should wear masks by which they would not only protect themselves but reduce stress level of people with illnesses
+
+### Now let's see what symtoms usually people get when testing positive
+
+```{r}
+
+
+ 
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+
+
+fir = covid %>% filter(virusTest%in% "positive") %>% group_by(temperature) %>% summarise(Count = n()) %>%
+  ggplot(aes(x=temperature, y= Count))+geom_bar(stat = "identity")+labs(title = "symptoms of temperature for people who tested postive", x="no/yes")
+ 
+ 
+ 
+sec =  covid %>% filter(virusTest%in% "positive") %>% group_by(soreThroat) %>% summarise(Count = n()) %>%
+  ggplot(aes(x=soreThroat, y=Count))+geom_bar(stat = "identity")+labs(title = " symptoms of sorethroat for people who tested postive", x="no/yes")
+ 
+third  = covid %>% filter(virusTest%in% "positive") %>% group_by(persistentCough) %>% summarise(Count = n()) %>%
+  ggplot(aes(x=persistentCough, y=Count))+geom_bar(stat = "identity")+labs(title = " symptoms of Cough for people who tested postive", x="no/yes") 
+four = covid %>% filter(virusTest%in% "positive") %>% group_by(lossOfSmell) %>% summarise(Count = n()) %>%
+  ggplot(aes(x=lossOfSmell, y=Count))+geom_bar(stat = "identity") +labs(title = " symptoms of lossSmell for people who tested postive", x="no/yes") 
+
+
+figureV <- ggarrange(fir, sec, third, four, 
+                     ncol=2, nrow=2)
+figureV
+  
+
+ 
+ 
+```
+
+
+So as we see people most common sympotoms to warn you of illness is lossSmell and Sorethroat.
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
